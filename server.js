@@ -1,71 +1,76 @@
 const express = require("express");
 const logger = require("morgan");
 const mongoose = require("mongoose");
+const path = require("path");
 
 const PORT = process.env.PORT || 3000;
-
 const db = require("./models");
-
 const app = express();
 
 app.use(logger("dev"));
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
 app.use(express.static("public"));
 
-mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/populate", { useNewUrlParser: true });
+app.get("/", function(req, res) {
+  res.sendFile(path.join(__dirname, "./public/index.html"));
+});
+app.get("/exercise", function(req, res) {
+  res.sendFile(path.join(__dirname, "./public/exercise.html"));
+});
+app.get("/stats", function(req, res) {
+  res.sendFile(path.join(__dirname, "./public/stats.html"));
+});
 
-db.Library.create({ name: "Campus Library" })
-  .then(dbLibrary => {
-    console.log(dbLibrary);
-  })
-  .catch(({message}) => {
-    console.log(message);
-  });
-
-app.post("/submit", ({body}, res) => {
-  db.Book.create(body)
-    .then(({_id}) => db.Library.findOneAndUpdate({}, { $push: { books: _id } }, { new: true }))
-    .then(dbLibrary => {
-      res.json(dbLibrary);
+app.post("/api/workouts", ({ body }, res) => {
+  db.Workout.create(body)
+   .then(dbWorkout => {
+      res.json(dbWorkout);
     })
     .catch(err => {
       res.json(err);
     });
 });
 
-app.get("/books", (req, res) => {
-  db.Book.find({})
-    .then(dbBook => {
-      res.json(dbBook);
+app.put("/api/workouts/:id", ({ body, params }, res) => {
+  db.Workout.updateOne({ _id: params.id }, { $push: { exercises: body }})
+   .then(dbWorkout => {
+      res.json(dbWorkout);
     })
     .catch(err => {
       res.json(err);
     });
 });
 
-app.get("/library", (req, res) => {
-  db.Library.find({})
-    .then(dbLibrary => {
-      res.json(dbLibrary);
+app.get("/api/workouts", (req, res) => {
+  db.Workout.find({}).sort({ day: -1 }).limit(1)
+    .then(dbWorkout => {
+      res.json(dbWorkout);
     })
     .catch(err => {
       res.json(err);
     });
 });
 
-app.get("/populated", (req, res) => {
-  db.Library.find({})
-    .populate("books")
-    .then(dbLibrary => {
-      res.json(dbLibrary);
+app.get("/api/workouts/range", (req, res) => {
+  db.Workout.find({})
+    .then(dbWorkout => {
+      res.json(dbWorkout);
     })
     .catch(err => {
       res.json(err);
     });
 });
+
+mongoose.connect(
+  process.env.MONGODB_URI || 'mongodb://localhost/workouts',
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+    useFindAndModify: false
+  }
+);
 
 app.listen(PORT, () => {
   console.log(`App running on port ${PORT}!`);
